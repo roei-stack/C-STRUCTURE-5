@@ -1,0 +1,1123 @@
+// src -> src[kernelsize/2][kernelsize/2] = src[1][1] = src[1*dim + 1] = src[dim+1]
+	src += dim + 1; // point to first valid pixel
+	dst += dim + 1;
+	int iterations = dim-2;
+	int i, j;
+	for (i = 1; i <= iterations; ++i) {
+		for (j = 1; j <= iterations; ++j) {
+			applyKernel(dim, src, dst, (int *) kernel, kernelScale, filter, i, j);
+			++src;
+			++dst;
+		}
+		// move src and dst to next rows, add kernelsize which is 3 in our case
+		// but we add kernelsize - 1 because inner loop already added 1
+		src += 2;
+		dst += 2;
+
+// LOOP: unrolling the kernel loop
+
+	/*
+	// center middle neibour
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// center right neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// buttom left neibour
+	src += rowsOffset;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// buttom middle neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// buttom right neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// top left neibour, adjusting src accordingly
+	src -= (dim - 1) << 1; // set src pixel to point at top left neibour
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// top middle neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// top right neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// center left neibour
+	src += rowsOffset;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	*/
+
+
+	
+	// top left neibour
+	src -= dim + 1;
+	//src -= i*dim + j - dim - 1; // set src pixel to point at top left neibour
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// top middle neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// top right neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// center left neibour
+	src += rowsOffset;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// center middle neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// center right neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// buttom left neibour
+	src += rowsOffset;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// buttom middle neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// buttom right neibour
+	++src;
+	++kernel;
+	sum_pixels_by_weight(&sum, *src, *kernel);
+	// end of loop unrolling
+
+
+
+			/*
+		// todo: cache sums
+		// for each pixel in kernel -> calculate it's sum
+		int minPos = 0, maxPos = 0;
+		register int min_value;
+		register int max_value;
+		register int sum;
+		// iter1 points to buttom left pixel:
+		// buttom left pixel:
+		sum = ((int) iter1->red) + ((int) iter1->green) + ((int) iter1->blue);
+		// no branch needed here, because the first sum is also the current minimum and maximum
+		min_value = sum;
+		max_value = sum;
+
+		// buttom middle pixel:
+		++iter1;				// advance pointer
+		sum = ((int) iter1->red) + ((int) iter1->green) + ((int) iter1->blue);
+		if (min_value < sum) {
+			// if sum > min_value, and we know that
+			// 		min_value == max_value
+			// we conclude that ==> sum >= max_value
+			if (max_value != sum) {
+				max_value = sum;
+				++maxPos;			// maxPos = 1
+			}
+		} else {
+			// sum <= min_value
+			min_value = sum;
+			++minPos; 			// minPos = 1	
+		}
+
+		// buttom right pixel:
+		++iter1;
+		sum = ((int) iter1->red) + ((int) iter1->green) + ((int) iter1->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum > max_value) {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 2;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 2;
+		}
+
+		// center left pixel, iter2 points to that place
+		sum = ((int) iter2->red) + ((int) iter2->green) + ((int) iter2->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum <= max_value) {} else {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 3;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 3;
+		}
+
+		// center middle pixel
+		++iter2;
+		sum = ((int) iter2->red) + ((int) iter2->green) + ((int) iter2->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum <= max_value) {} else {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 4;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 4;
+		}
+
+		// center right pixel:
+		++iter2;
+		sum = ((int) iter2->red) + ((int) iter2->green) + ((int) iter2->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum <= max_value) {} else {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 5;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 5;
+		}
+
+		// top left pixel, iter3 points to that pixel
+		sum = ((int) iter3->red) + ((int) iter3->green) + ((int) iter3->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum <= max_value) {} else {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 6;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 6;
+		}
+
+		// top middle pixel:
+		++iter3;
+		sum = ((int) iter3->red) + ((int) iter3->green) + ((int) iter3->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum <= max_value) {} else {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 7;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 7;
+		}
+
+		// top right pixel:
+		++iter3;
+		sum = ((int) iter3->red) + ((int) iter3->green) + ((int) iter3->blue);
+		if (min_value < sum) {
+			// check if sum is new maximun
+			if (sum <= max_value) {} else {
+				// set sum as new maximum
+				max_value = sum;
+				maxPos = 8;
+			}
+		} else {
+			// set sum as new minimum
+			min_value = sum;
+			minPos = 8;
+		}
+
+		// filter out the neibour pixels with min and max sums
+		// subtract pixels at minPos and at maxPos
+		iter1 -= 2;
+		pixel pMin = iter1[minPos];
+		pixel pMax = iter1[maxPos];
+		pixel_sum.red -= pMin.red + pMax.red;
+		pixel_sum.green -= pMin.green + pMax.green;
+		pixel_sum.blue -= pMin.blue + pMax.blue;
+		*/
+
+
+
+memcpy(src, image->data, bytes);	// src = image.copy()
+		/******CONVOLUTION*******/
+		// src --> src[kernelsize/2][kernelsize/2] = src[1][1] = src[1*dim + 1] = src[dim+1]
+		dst = firstDst;
+		src = firstSrc; 					// point to first valid pixel image[1][1]
+		endLine = dst + dim - 2;			// the address of the last pixel in the current output line
+		iter1 = temp;						// pointer to image[i-1][j-1]
+		iter2 = src - 1;					// pointer to image[i][j-1]
+		iter3 = iter2 + dim;				// pointer to image[i+1][j-1]
+		do {
+			do {
+				/***Applying the kernel***/
+				// todo -> apply SIMD
+				// all reds:
+				pixel_sum.red = -(iter1->red + (iter1 + 1)->red + (iter1 + 2)->red
+				 + iter2->red + (iter2 + 2)->red + iter3->red
+				  + (iter3 + 1)->red + (iter3 + 2)->red) + 9*((iter2 + 1)->red);
+				// all greens
+				pixel_sum.green = -(iter1->green + (iter1 + 1)->green + (iter1 + 2)->green
+				+ iter2->green + (iter2 + 2)->green
+				+ iter3->green + (iter3 + 1)->green + (iter3 + 2)->green) + 9*((iter2 + 1)->green);
+				// all blues
+				pixel_sum.blue = -(iter1->blue + (iter1 + 1)->blue + (iter1 + 2)->blue
+				+ iter2->blue + (iter2 + 2)->blue
+				+ iter3->blue + (iter3 + 1)->blue + (iter3 + 2)->blue) + 9*((iter2 + 1)->blue);
+				/**Assign sum to pixel at [i,j]**/
+				/* 32 bits signed integer i, can be clamped into 8 bits unsigned char
+				with this branchless code:
+				clampIntToRange(int i, 0, 255):
+					i &= -(!(i >> 31));
+					i |= ((255 - i) >> 31); */
+				// clamp values to match the range [0,255]
+				pixel_sum.red &= -(!(pixel_sum.red >> 31));
+				pixel_sum.green &= -(!(pixel_sum.green >> 31));
+				pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+				// copy answers to pixel
+				dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+				dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+				dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+				/***Moving to next pixel***/
+				++src;
+				++dst;
+				// adjusting the kernel pixels iterators
+				++iter1;
+				++iter2;
+				++iter3;
+				// pixel sums iterator
+			} while (dst != endLine);
+			endLine += dim;					// calculate next line's end address
+			// move src and dst to next rows, add kernelsize which is 3 in our case
+			// but we add kernelsize - 1 because inner loop already added 1
+			src += 2;
+			dst += 2;
+			// adjusting the kernel pixels iterators
+			iter1 += 2;
+			iter2 += 2;
+			iter3 += 2;
+		} while (endLine < limit);
+		//***free allocated memory***//
+		free(temp);
+
+
+		/****************************/
+dst = firstDst;
+		src = firstSrc; 					// point to first valid pixel image[1][1]
+		endLine = dst + dim - 2;			// the address of the last pixel in the current output line
+		iter1 = temp;						// pointer to image[i-1][j-1]
+		iter2 = src - 1;					// pointer to image[i][j-1]
+		iter3 = iter2 + dim;				// pointer to image[i+1][j-1]
+		do {
+			do {
+				/***Applying the kernel***/
+				// todo -> apply SIMD
+				// all reds:
+				pixel_sum.red = -(iter1->red + (iter1 + 1)->red + (iter1 + 2)->red
+				 + iter2->red + (iter2 + 2)->red + iter3->red
+				  + (iter3 + 1)->red + (iter3 + 2)->red) + (9*((iter2 + 1)->red));
+				// all greens
+				pixel_sum.green = -(iter1->green + (iter1 + 1)->green + (iter1 + 2)->green
+				+ iter2->green + (iter2 + 2)->green
+				+ iter3->green + (iter3 + 1)->green + (iter3 + 2)->green) + (9*((iter2 + 1)->green));
+				// all blues
+				pixel_sum.blue = -(iter1->blue + (iter1 + 1)->blue + (iter1 + 2)->blue
+				+ iter2->blue + (iter2 + 2)->blue
+				+ iter3->blue + (iter3 + 1)->blue + (iter3 + 2)->blue) + (9*((iter2 + 1)->blue));
+				/**Assign sum to pixel at [i,j]**/
+				/* 32 bits signed integer i, can be clamped into 8 bits unsigned char
+				with this branchless code:
+				clampIntToRange(int i, 0, 255):
+					i &= -(!(i >> 31));
+					i |= ((255 - i) >> 31); */
+				// clamp values to match the range [0,255]
+				pixel_sum.red &= -(!(pixel_sum.red >> 31));
+				pixel_sum.green &= -(!(pixel_sum.green >> 31));
+				pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+				// copy answers to pixel
+				dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+				dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+				dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+				/***Moving to next pixel***/
+				++src;
+				++dst;
+				// adjusting the kernel pixels iterators
+				++iter1;
+				++iter2;
+				++iter3;
+				// pixel sums iterator
+			} while (dst != endLine);
+			endLine += dim;					// calculate next line's end address
+			// move src and dst to next rows, add kernelsize which is 3 in our case
+			// but we add kernelsize - 1 because inner loop already added 1
+			src += 2;
+			dst += 2;
+			// adjusting the kernel pixels iterators
+			iter1 += 2;
+			iter2 += 2;
+			iter3 += 2;
+		} while (endLine < limit);
+
+
+
+
+		/************************/
+		/***SHARP CONVOLUTION***/
+		memcpy(temp, image->data, bytes);	// src = image.copy()
+		src = firstSrc; 					// point to first valid pixel image[1][1]
+		dst = firstDst;
+		endLine = dst + dim - 2;			// the address of the last pixel in the current output line
+		iter1 = temp;						// pointer to image[i-1][j-1]
+		iter2 = src - 1;					// pointer to image[i][j-1]
+		iter3 = iter2 + dim;				// pointer to image[i+1][j-1]
+		do {
+			do {
+				/***Applying the kernel***/
+				// todo -> apply SIMD
+				// all reds:
+				pixel_sum.red = -(iter1->red + (iter1 + 1)->red + (iter1 + 2)->red
+				+ iter2->red + (iter2 + 2)->red
+				+ iter3->red + (iter3 + 1)->red + (iter3 + 2)->red) + (9*((iter2 + 1)->red));
+				// all greens
+				pixel_sum.green = -(iter1->green + (iter1 + 1)->green + (iter1 + 2)->green
+				+ iter2->green + (iter2 + 2)->green
+				+ iter3->green + (iter3 + 1)->green + (iter3 + 2)->green) + (9*((iter2 + 1)->green));
+				// all blues
+				pixel_sum.blue = -(iter1->blue + (iter1 + 1)->blue + (iter1 + 2)->blue
+				+ iter2->blue + (iter2 + 2)->blue
+				+ iter3->blue + (iter3 + 1)->blue + (iter3 + 2)->blue) + (9*((iter2 + 1)->blue));
+
+				/**Assign sum to pixel at [i,j]**/
+				/* 32 bits signed integer i, can be clamped into 8 bits unsigned char
+				with this branchless code:
+				clampIntToRange(int i, 0, 255):
+					i &= -(!(i >> 31));
+					i |= ((255 - i) >> 31); */
+				// clamp values to match the range [0,255]
+				pixel_sum.red &= -(!(pixel_sum.red >> 31));
+				pixel_sum.green &= -(!(pixel_sum.green >> 31));
+				pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+				// copy answers to pixel
+				dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+				dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+				dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+				/***Moving to next pixel***/
+				++src;
+				++dst;
+				// adjusting the kernel pixels iterators
+				++iter1;
+				++iter2;
+				++iter3;
+			} while (dst != endLine);
+			endLine += dim;					// calculate next line's end address
+			// move src and dst to next rows, add kernelsize which is 3 in our case
+			// but we add kernelsize - 1 because inner loop already added 1
+			src += 2;
+			dst += 2;
+			// adjusting the kernel pixels iterators
+			iter1 += 2;
+			iter2 += 2;
+			iter3 += 2;
+
+		} while (endLine < limit);
+		// write result image to file
+		writeBMP(image, srcImgpName, filteredSharpRsltImgName);	
+		
+		free(pixel_sums);
+
+
+		/*********************************/
+		int* pixel_sums = calculate_sums((pixel *)image->data, limit, imageScale);
+
+
+		// apply extermum filtered kernel to blur image
+		//doConvolution(image, 3, (int *)blurKernel, 7, true, limit, imageScale, pixel_sums);
+
+		memcpy(src, dst, bytes);		// src = image.copy()
+		dst = firstDst;					// applying convolution directly on the input
+		src = firstSrc;					// allocate space for source image
+		endLine = dst + dim - 2;		// the address of the last pixel in the current output line
+		iter1 = temp;					// pointer to image[i-1][j-1]
+		iter2 = src - 1;				// pointer to image[i][j-1]
+		iter3 = iter2 + dim;			// pointer to image[i+1][j-1]
+		// pointer to sumArray[i-1][j-1]
+		int newlineOffset = dim - 2;
+		register pixel* minPos = iter1;
+		register pixel* maxPos = iter1;
+		register int min_value;
+		register int max_value;
+		register int sum;
+		do {
+			do {
+				/***Applying the kernel***/
+				// todo -> apply SIMD
+				// all reds:
+				pixel_sum.red = iter1->red + (iter1 + 1)->red + (iter1 + 2)->red
+				+ iter2->red + (iter2 + 1)->red + (iter2 + 2)->red
+				+ iter3->red + (iter3 + 1)->red + (iter3 + 2)->red;
+				// all greens
+				pixel_sum.green = iter1->green + (iter1 + 1)->green + (iter1 + 2)->green 
+				+ iter2->green + (iter2 + 1)->green + (iter2 + 2)->green
+				+ iter3->green + (iter3 + 1)->green + (iter3 + 2)->green;
+				// all blues
+				pixel_sum.blue = iter1->blue + (iter1 + 1)->blue + (iter1 + 2)->blue 
+				+ iter2->blue + (iter2 + 1)->blue + (iter2 + 2)->blue 
+				+ iter3->blue + (iter3 + 1)->blue + (iter3 + 2)->blue;
+				
+				/***Filter***/
+				
+				if (1) {
+					// for each pixel in kernel -> calculate it's sum
+					// sum_array is a pointer to sums array
+					minPos = iter1;
+					maxPos = iter1;
+					// buttom left pixel, iter1 points to buttom left pixel::
+					sum = *pixel_sums;
+					// no branch needed here, because the first sum is also the current minimum and maximum
+					min_value = sum;
+					max_value = sum;
+
+					// buttom middle pixel:
+					++iter1;				// advance pointer
+					++pixel_sums;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// if sum > min_value, and we know that
+						// 		min_value == max_value
+						// we conclude that ==> sum >= max_value
+						if (max_value != sum) {
+							max_value = sum;
+							++maxPos;			// maxPos points to iter1
+						}
+					} else {
+						// sum <= min_value
+						min_value = sum;
+						++minPos; 				// minPos points to iter1
+					}
+
+					// buttom right pixel:
+					++iter1;
+					++pixel_sums;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum > max_value) {
+							// set sum as new maximum
+							max_value = sum;
+							maxPos = iter1;		// minPos points to current pixel
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter1;			// maxPos points to current pixel
+					}
+
+					// center left pixel, iter2 points to that place
+					pixel_sums += newlineOffset;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum <= max_value) {} else {
+							// set sum as new maximum
+							max_value = sum;
+							maxPos = iter2;
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter2;
+					}
+
+					// center middle pixel
+					++iter2;
+					++pixel_sums;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum <= max_value) {} else {
+							// set sum as new maximum
+							max_value = sum;
+							maxPos = iter2;
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter2;
+					}
+
+					// center right pixel:
+					++iter2;
+					++pixel_sums;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum <= max_value) {} else {
+							// set sum as new maximum
+							max_value = sum;
+							maxPos = iter2;
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter2;
+					}
+
+					// top left pixel, iter3 points to that pixel
+					pixel_sums += newlineOffset;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum <= max_value) {} else {
+							// set sum as new max
+							// set sum as new minimum
+							max_value = sum;
+							maxPos = iter3;
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter3;
+					}
+
+					// top middle pixel:
+					++iter3;
+					++pixel_sums;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum <= max_value) {} else {
+							// set sum as new maximum
+							max_value = sum;
+							maxPos = iter3;
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter3;
+					}
+
+					// top right pixel:
+					++iter3;
+					++pixel_sums;
+					sum = *pixel_sums;
+					if (min_value < sum) {
+						// check if sum is new maximun
+						if (sum <= max_value) {} else {
+							// set sum as new maximum
+							max_value = sum;
+							maxPos = iter3;
+						}
+					} else {
+						// set sum as new minimum
+						min_value = sum;
+						minPos = iter3;
+					}
+
+					// filter out the neibour pixels with min and max sums
+					iter1 -= 2;						// adjusting the iterators because we moved them 
+					pixel_sum.red -= minPos->red + maxPos->red;
+					iter2 -= 2;						// adjusting the iterators because we moved them 
+					pixel_sum.green -= minPos->green + maxPos->green;
+					iter3 -= 2;						// adjusting the iterators because we moved them 
+					pixel_sum.blue -= minPos->blue + maxPos->blue;
+					
+				}
+				/**Assign sum to pixel at [i,j]**/
+				/* 32 bits signed integer i, can be clamped into 8 bits unsigned char
+				with this branchless code:
+				clampIntToRange(int i, 0, 255):
+					i &= -(!(i >> 31));
+					i |= ((255 - i) >> 31); */
+				// clamp values to match the range [0,255]
+				pixel_sum.red &= -(!(pixel_sum.red >> 31));
+				pixel_sum.green &= -(!(pixel_sum.green >> 31));
+				pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+				// copy answers to pixel
+				dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+				dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+				dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+				/***Moving to next pixel***/
+				++src;
+				++dst;
+				// adjusting the kernel pixels iterators
+				++iter1;
+				++iter2;
+				++iter3;
+				// pixel sums iterator
+				++pixel_sums;
+			} while (dst != endLine);
+			endLine += dim;					// calculate next line's end address
+			// move src and dst to next rows, add kernelsize which is 3 in our case
+			// but we add kernelsize - 1 because inner loop already added 1
+			src += 2;
+			dst += 2;
+			// adjusting the kernel pixels iterators
+			iter1 += 2;
+			iter2 += 2;
+			iter3 += 2;
+			pixel_sums += 2;
+		} while (endLine < limit);
+		// write result image to file
+		writeBMP(image, srcImgpName, filteredBlurRsltImgName);
+
+
+		/***SHARP CONVOLUTION***/
+		memcpy(temp, image->data, bytes);	// src = image.copy()
+		src = firstSrc; 					// point to first valid pixel image[1][1]
+		dst = firstDst;
+		endLine = dst + dim - 2;			// the address of the last pixel in the current output line
+		iter1 = temp;						// pointer to image[i-1][j-1]
+		iter2 = src - 1;					// pointer to image[i][j-1]
+		iter3 = iter2 + dim;				// pointer to image[i+1][j-1]
+		do {
+			do {
+				/***Applying the kernel***/
+				// todo -> apply SIMD
+				// all reds:
+				pixel_sum.red = -(iter1->red + (iter1 + 1)->red + (iter1 + 2)->red
+				+ iter2->red + (iter2 + 2)->red
+				+ iter3->red + (iter3 + 1)->red + (iter3 + 2)->red) + (9*((iter2 + 1)->red));
+				// all greens
+				pixel_sum.green = -(iter1->green + (iter1 + 1)->green + (iter1 + 2)->green
+				+ iter2->green + (iter2 + 2)->green
+				+ iter3->green + (iter3 + 1)->green + (iter3 + 2)->green) + (9*((iter2 + 1)->green));
+				// all blues
+				pixel_sum.blue = -(iter1->blue + (iter1 + 1)->blue + (iter1 + 2)->blue
+				+ iter2->blue + (iter2 + 2)->blue
+				+ iter3->blue + (iter3 + 1)->blue + (iter3 + 2)->blue) + (9*((iter2 + 1)->blue));
+
+				/**Assign sum to pixel at [i,j]**/
+				/* 32 bits signed integer i, can be clamped into 8 bits unsigned char
+				with this branchless code:
+				clampIntToRange(int i, 0, 255):
+					i &= -(!(i >> 31));
+					i |= ((255 - i) >> 31); */
+				// clamp values to match the range [0,255]
+				pixel_sum.red &= -(!(pixel_sum.red >> 31));
+				pixel_sum.green &= -(!(pixel_sum.green >> 31));
+				pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+				// copy answers to pixel
+				dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+				dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+				dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+				/***Moving to next pixel***/
+				++src;
+				++dst;
+				// adjusting the kernel pixels iterators
+				++iter1;
+				++iter2;
+				++iter3;
+			} while (dst != endLine);
+			endLine += dim;					// calculate next line's end address
+			// move src and dst to next rows, add kernelsize which is 3 in our case
+			// but we add kernelsize - 1 because inner loop already added 1
+			src += 2;
+			dst += 2;
+			// adjusting the kernel pixels iterators
+			iter1 += 2;
+			iter2 += 2;
+			iter3 += 2;
+
+		} while (endLine < limit);
+		// write result image to file
+		writeBMP(image, srcImgpName, filteredSharpRsltImgName);	
+		
+		free(pixel_sums);
+
+
+		/******************************/
+		/*
+void doConvolution(Image *image, int kernelSize, int *kernel, int kernelScale, bool filter, pixel* limit, int imageScale, int* pixel_sums) {
+	int bytes = imageScale * 3;			// sizeof(pixel) = 3
+	pixel* dst = (pixel *)image->data;	// applying convolution directly on the input
+	pixel* src = malloc(bytes);			// allocate space for source image
+	void* temp = src;
+	memcpy(src, dst, bytes);			// src = image.copy()
+
+	//******CONVOLUTION
+	register int w0 = kernel[0];
+	register int w1 = kernel[1];
+	register int w2 = kernel[2];
+	register int w3 = kernel[3];
+	register int w4 = kernel[4];
+	register int w5 = kernel[5];
+	register int w6 = kernel[6];
+	register int w7 = kernel[7];
+	register int w8 = kernel[8];
+	// src --> src[kernelsize/2][kernelsize/2] = src[1][1] = src[1*dim + 1] = src[dim+1]
+	int dim = image->sizeX;
+	src += dim + 1; 					// point to first valid pixel image[1][1]
+	dst += dim + 1;
+	pixel* endLine = dst + dim - 2;		// the address of the last pixel in the current output line
+	pixel_sum pixel_sum;				// accumlator
+	pixel* iter1 = temp;				// pointer to image[i-1][j-1]
+	pixel* iter2 = src - 1;				// pointer to image[i][j-1]
+	pixel* iter3 = iter2 + dim;			// pointer to image[i+1][j-1]
+	// pointer to sumArray[i-1][j-1]
+	int* sum_array = pixel_sums;
+	int newlineOffset = dim - 2;
+	register pixel* minPos = iter1;
+	register pixel* maxPos = iter1;
+	register int min_value;
+	register int max_value;
+	register int sum;
+	do {
+		do {
+			//***Applying the kernel
+			// todo -> apply SIMD
+			// all reds:
+			pixel_sum.red = w0*iter1->red + w1*(iter1 + 1)->red + w2*(iter1 + 2)->red
+			+ w3*iter2->red + w4*(iter2 + 1)->red + w5*(iter2 + 2)->red
+			+ w6*iter3->red + w7*(iter3 + 1)->red + w8*(iter3 + 2)->red;
+			// all greens
+			pixel_sum.green = w0*iter1->green + w1*(iter1 + 1)->green + w2*(iter1 + 2)->green 
+			+ w3*iter2->green + w4*(iter2 + 1)->green + w5*(iter2 + 2)->green 
+			+ w6*iter3->green + w7*(iter3 + 1)->green + w8*(iter3 + 2)->green;
+			// all blues
+			pixel_sum.blue = w0*iter1->blue + w1*(iter1 + 1)->blue + w2*(iter1 + 2)->blue 
+			+ w3*iter2->blue + w4*(iter2 + 1)->blue + w5*(iter2 + 2)->blue 
+			+ w6*iter3->blue + w7*(iter3 + 1)->blue + w8*(iter3 + 2)->blue;
+			//***Filter**
+			if (filter) {
+				// for each pixel in kernel -> calculate it's sum
+				int *sums = sum_array;	// pointer to sums array
+				minPos = iter1;
+				maxPos = iter1;
+				register int sum;
+				// buttom left pixel, iter1 points to buttom left pixel::
+				sum = *sums;
+				// no branch needed here, because the first sum is also the current minimum and maximum
+				min_value = sum;
+				max_value = sum;
+
+				// buttom middle pixel:
+				++iter1;				// advance pointer
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// if sum > min_value, and we know that
+					// 		min_value == max_value
+					// we conclude that ==> sum >= max_value
+					if (max_value != sum) {
+						max_value = sum;
+						++maxPos;			// maxPos points to iter1
+					}
+				} else {
+					// sum <= min_value
+					min_value = sum;
+					++minPos; 				// minPos points to iter1
+				}
+
+				// buttom right pixel:
+				++iter1;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum > max_value) {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter1;		// minPos points to current pixel
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter1;			// maxPos points to current pixel
+				}
+
+				// center left pixel, iter2 points to that place
+				sums += newlineOffset;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter2;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter2;
+				}
+
+				// center middle pixel
+				++iter2;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter2;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter2;
+				}
+
+				// center right pixel:
+				++iter2;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter2;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter2;
+				}
+
+				// top left pixel, iter3 points to that pixel
+				sums += newlineOffset;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new max
+						// set sum as new minimum
+						max_value = sum;
+						maxPos = iter3;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter3;
+				}
+
+				// top middle pixel:
+				++iter3;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter3;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter3;
+				}
+
+				// top right pixel:
+				++iter3;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter3;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter3;
+				}
+
+				// filter out the neibour pixels with min and max sums
+				pixel pMin = *minPos;
+				pixel pMax = *maxPos;
+				iter1 -= 2;						// adjusting the iterators because we moved them 
+				pixel_sum.red -= pMin.red + pMax.red;
+				iter2 -= 2;						// adjusting the iterators because we moved them 
+				pixel_sum.green -= pMin.green + pMax.green;
+				iter3 -= 2;						// adjusting the iterators because we moved them 
+				pixel_sum.blue -= pMin.blue + pMax.blue;
+			}
+			//**Assign sum to pixel at [i,j]
+			// 32 bits signed integer i, can be clamped into 8 bits unsigned char
+			with this branchless code:
+	 		clampIntToRange(int i, 0, 255):
+	 			i &= -(!(i >> 31));
+     			i |= ((255 - i) >> 31);
+		
+			// clamp values to match the range [0,255]
+			pixel_sum.red = pixel_sum.red / kernelScale; 					// divide by kernel's weight, todo optimize
+			pixel_sum.green = pixel_sum.green / kernelScale; 				// divide by kernel's weight, todo optimize
+			pixel_sum.blue = pixel_sum.blue / kernelScale; 					// divide by kernel's weight, todo optimize
+			pixel_sum.red &= -(!(pixel_sum.red >> 31));
+			pixel_sum.green &= -(!(pixel_sum.green >> 31));
+			pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+			// copy answers to pixel
+			dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+			dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+			dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+			//***Moving to next pixel
+			++src;
+			++dst;
+			// adjusting the kernel pixels iterators
+			++iter1;
+			++iter2;
+			++iter3;
+			// pixel sums iterator
+			++sum_array;
+		} while (dst != endLine);
+		endLine += dim;					// calculate next line's end address
+		// move src and dst to next rows, add kernelsize which is 3 in our case
+		// but we add kernelsize - 1 because inner loop already added 1
+		src += 2;
+		dst += 2;
+		// adjusting the kernel pixels iterators
+		iter1 += 2;
+		iter2 += 2;
+		iter3 += 2;
+		sum_array += 2;
+
+	} while (endLine < limit);
+
+	//***free allocated memory***//
+	//free(temp);
+//}				if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter2;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter2;
+				}
+
+				// center right pixel:
+				++iter2;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter2;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter2;
+				}
+
+				// top left pixel, iter3 points to that pixel
+				sums += newlineOffset;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new max
+						// set sum as new minimum
+						max_value = sum;
+						maxPos = iter3;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter3;
+				}
+
+				// top middle pixel:
+				++iter3;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter3;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter3;
+				}
+
+				// top right pixel:
+				++iter3;
+				++sums;
+				sum = *sums;
+				if (min_value < sum) {
+					// check if sum is new maximun
+					if (sum <= max_value) {} else {
+						// set sum as new maximum
+						max_value = sum;
+						maxPos = iter3;
+					}
+				} else {
+					// set sum as new minimum
+					min_value = sum;
+					minPos = iter3;
+				}
+
+				// filter out the neibour pixels with min and max sums
+				pixel pMin = *minPos;
+				pixel pMax = *maxPos;
+				iter1 -= 2;						// adjusting the iterators because we moved them 
+				pixel_sum.red -= pMin.red + pMax.red;
+				iter2 -= 2;						// adjusting the iterators because we moved them 
+				pixel_sum.green -= pMin.green + pMax.green;
+				iter3 -= 2;						// adjusting the iterators because we moved them 
+				pixel_sum.blue -= pMin.blue + pMax.blue;
+			}
+			//**Assign sum to pixel at [i,j]
+			// 32 bits signed integer i, can be clamped into 8 bits unsigned char
+			with this branchless code:
+	 		clampIntToRange(int i, 0, 255):
+	 			i &= -(!(i >> 31));
+     			i |= ((255 - i) >> 31);
+		
+			// clamp values to match the range [0,255]
+			pixel_sum.red = pixel_sum.red / kernelScale; 					// divide by kernel's weight, todo optimize
+			pixel_sum.green = pixel_sum.green / kernelScale; 				// divide by kernel's weight, todo optimize
+			pixel_sum.blue = pixel_sum.blue / kernelScale; 					// divide by kernel's weight, todo optimize
+			pixel_sum.red &= -(!(pixel_sum.red >> 31));
+			pixel_sum.green &= -(!(pixel_sum.green >> 31));
+			pixel_sum.blue &= -(!(pixel_sum.blue >> 31));
+			// copy answers to pixel
+			dst->red = pixel_sum.red | ((255 - pixel_sum.red) >> 31);
+			dst->green = pixel_sum.green | ((255 - pixel_sum.green) >> 31);
+			dst->blue = pixel_sum.blue | ((255 - pixel_sum.blue) >> 31);
+			//***Moving to next pixel
+			++src;
+			++dst;
+			// adjusting the kernel pixels iterators
+			++iter1;
+			++iter2;
+			++iter3;
+			// pixel sums iterator
+			++sum_array;
+		} while (dst != endLine);
+		endLine += dim;					// calculate next line's end address
+		// move src and dst to next rows, add kernelsize which is 3 in our case
+		// but we add kernelsize - 1 because inner loop already added 1
+		src += 2;
+		dst += 2;
+		// adjusting the kernel pixels iterators
+		iter1 += 2;
+		iter2 += 2;
+		iter3 += 2;
+		sum_array += 2;
+
+	} while (endLine < limit);
+
+	//***free allocated memory***//
+	//free(temp);
+//}
